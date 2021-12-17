@@ -127,3 +127,8 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+
+# models
+yolo/model/yolov3.weights
+yolo/model/yolov4.weights
