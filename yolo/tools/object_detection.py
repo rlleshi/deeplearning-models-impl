@@ -191,10 +191,13 @@ def main():
                 args.video).streams.filter(res='720p').first().download()
 
         video = cv2.VideoCapture(args.video)
+        est_time = round(
+            video.get(cv2.CAP_PROP_FRAME_COUNT) * 0.22 / (60 * 3), 2)
         CONSOLE.print(
             f'Processing {args.video} with fps '
             f'{video.get(cv2.CAP_PROP_FPS)} and '
-            f'{video.get(cv2.CAP_PROP_FRAME_COUNT)} frames...',
+            f'{video.get(cv2.CAP_PROP_FRAME_COUNT)} frames. \n',
+            f'Will roughly take {est_time} min on cpu only.',
             style='green')
         out_f = f'yolo_{args.video.split(os.sep)[-1]}'
 
@@ -286,7 +289,7 @@ def main():
             filename=out_f,
             fourcc=cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'),
             # fps=camera.capture.get(cv2.CAP_PROP_FPS),
-            fps=60,
+            fps=5,
             frameSize=(round(camera.capture.get(cv2.CAP_PROP_FRAME_WIDTH)),
                        round(camera.capture.get(cv2.CAP_PROP_FRAME_HEIGHT))))
 
@@ -295,9 +298,12 @@ def main():
             if frame is None:
                 continue
 
-            # * cpu inference speed is roughly 0.2s, which means max 5 frames
+            # * cpu inference speed is roughly 0.22s, which means max 5 frames
             # can be inferred per second
             results = get_results(model, frame, args.conf_thr, args.nms_thr)
+            if args.find is not None:
+                results = filter_results(results, find)
+
             frame = add_results_to_img(frame, results, classes)
             video_writer.write(frame.astype(np.uint8))
             cv2.imshow('webcam', frame)
