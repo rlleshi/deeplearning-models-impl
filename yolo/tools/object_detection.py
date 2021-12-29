@@ -1,6 +1,6 @@
 import argparse
 import os
-import os.path
+import os.path as osp
 import sys
 import time
 from threading import Thread
@@ -79,6 +79,7 @@ def parse_args():
     parser.add_argument('--webcam',
                         action='store_true',
                         help='whether to use webcam')
+    parser.add_argument('--out-dir', default=None, help='out dir')
     parser.add_argument(
         '--find',
         nargs='+',
@@ -101,7 +102,7 @@ def parse_args():
                         help='model weights')
     parser.add_argument('--conf-thr',
                         type=float,
-                        default=0.5,
+                        default=0.4,
                         help='confidence threshold')
     parser.add_argument('--nms-thr',
                         type=float,
@@ -136,7 +137,6 @@ def add_results_to_img(img, results, classes):
 def filter_results(results, find):
     class_ids, scores, boxes = results
     new_class_ids, new_scores, new_boxes = [], [], []
-    # ? filter the elements inline
     for (class_id, score, box) in zip(class_ids, scores, boxes):
         if class_id in find:
             new_class_ids.append(class_id)
@@ -159,11 +159,11 @@ def main():
         find = [class_to_id.get(f, None) for f in args.find]
         if not any(find) and 0 not in find:
             CONSOLE.print(
-                f'Labels not found. Please check {args.classes} '
-                'for a list of supported labels',
+                f'Category not found. Please check {args.classes} '
+                'for a list of supported categories.',
                 style='yellow')
             sys.exit()
-        # store frames with poss objects if the detector lost track momentarily
+        # stack to store frames if detector loses the object temporarily
         stack, stack_len = [], 120
 
     if args.image:
@@ -172,12 +172,14 @@ def main():
         if args.find is not None:
             results = filter_results(results, find)
             if not results[0]:
-                CONSOLE.print(f'{args.find} were not found on the image',
-                              style='yellow')
+                CONSOLE.print(f'{args.find} was/were not found on the image',
+                              style='red')
                 sys.exit()
 
         img = add_results_to_img(img, results, classes)
         out_f = f'yolo_{args.image.split(os.sep)[-1]}'
+        if args.out_dir is not None:
+            out_f = osp.join(args.out_dir, out_f)
         cv2.imwrite(out_f, img.astype(np.uint8))
         CONSOLE.print(f'Finished. Saved {out_f}', style='green')
         show_image(img)
@@ -188,7 +190,6 @@ def main():
             args.video = YouTube(
                 args.video).streams.filter(res='720p').first().download()
 
-        last_find_frame, skip_mode = 0, True  # used for args.find
         video = cv2.VideoCapture(args.video)
         CONSOLE.print(
             f'Processing {args.video} with fps '
@@ -196,6 +197,10 @@ def main():
             f'{video.get(cv2.CAP_PROP_FRAME_COUNT)} frames...',
             style='green')
         out_f = f'yolo_{args.video.split(os.sep)[-1]}'
+
+        last_find_frame, skip_mode = 0, True  # used for args.find
+        if args.out_dir is not None:
+            out_f = osp.join(args.out_dir, out_f)
 
         video_writer = cv2.VideoWriter(
             out_f, cv2.VideoWriter_fourcc(*'MP4V'),
@@ -224,8 +229,11 @@ def main():
                         for future_frame in stack:
                             video_writer.write(future_frame.astype(np.uint8))
 
+                    # stack cannot be more than `stack_len`
                     stack.pop(0)
-                    # enable skip mode if no object was found for some frames
+
+                    # enable skip mode if no object was found for `stack_len`
+                    # frames
                     skip_mode = True
 
                 stack.append(frame)
@@ -245,13 +253,21 @@ def main():
                 # temporarily disable skip mode since object was found
                 skip_mode = False
 
+                # add some previous frames before the current discovered frame
+                if len(stack) == stack_len + 1:
+                    stack.pop()
+                    for past_frame in stack:
+                        video_writer.write(past_frame.astype(np.uint8))
+
                 # it might be that the model lost track of the object
                 # momentarily, so add past frames from stack
                 if last_find_frame < stack_len:
                     # remove current frame
                     stack.pop()
+
                     for past_frame in stack:
                         video_writer.write(past_frame.astype(np.uint8))
+
                 stack.clear()
                 last_find_frame = 0
 
@@ -264,6 +280,8 @@ def main():
         camera = ThreadedCamera()
         CONSOLE.print('Processing input from webcam...', style='green')
         out_f = 'webcam.avi'
+        if args.out_dir is not None:
+            out_f = osp.join(args.out_dir, out_f)
         video_writer = cv2.VideoWriter(
             filename=out_f,
             fourcc=cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'),
