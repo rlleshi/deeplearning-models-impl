@@ -191,13 +191,11 @@ def main():
                 args.video).streams.filter(res='720p').first().download()
 
         video = cv2.VideoCapture(args.video)
-        est_time = round(
-            video.get(cv2.CAP_PROP_FRAME_COUNT) * 0.22 / (60 * 3), 2)
         CONSOLE.print(
             f'Processing {args.video} with fps '
             f'{video.get(cv2.CAP_PROP_FPS)} and '
-            f'{video.get(cv2.CAP_PROP_FRAME_COUNT)} frames. \n',
-            f'Will roughly take {est_time} min on cpu only.',
+            f'{video.get(cv2.CAP_PROP_FRAME_COUNT)} frames\n',
+            'On cpu it takes ~0.22s to process a frame',
             style='green')
         out_f = f'yolo_{args.video.split(os.sep)[-1]}'
 
