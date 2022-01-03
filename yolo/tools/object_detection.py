@@ -164,7 +164,7 @@ def main():
                 style='yellow')
             sys.exit()
         # stack to store frames if detector loses the object temporarily
-        stack, stack_len = [], 120
+        stack, stack_len = [], 150
 
     if args.image:
         img = cv2.imread(args.image)
