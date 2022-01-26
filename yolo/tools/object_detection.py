@@ -102,7 +102,7 @@ def parse_args():
                         help='model weights')
     parser.add_argument('--conf-thr',
                         type=float,
-                        default=0.4,
+                        default=0.5,
                         help='confidence threshold')
     parser.add_argument('--nms-thr',
                         type=float,
