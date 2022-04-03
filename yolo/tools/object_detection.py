@@ -106,7 +106,7 @@ def parse_args():
                         help='confidence threshold')
     parser.add_argument('--nms-thr',
                         type=float,
-                        default=0.4,
+                        default=0.5,
                         help='non-maximum suppression threshold')
     parser.add_argument('--shape',
                         type=int,
